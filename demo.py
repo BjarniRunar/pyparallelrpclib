@@ -1,6 +1,7 @@
 #!/usr/bin/python
-from parallelrpclib import ParallelServerProxy
-from threading import Thread
+import time
+from parallelrpclib import *
+from multiprocessing import Process
 
 import SocketServer
 from SimpleXMLRPCServer import SimpleXMLRPCServer
@@ -12,8 +13,11 @@ class TestHandler(SimpleXMLRPCRequestHandler):
 
 
 class TestServer(SocketServer.ThreadingMixIn, SimpleXMLRPCServer):
+    daemon_threads = True
+
     def __init__(self, port, handler=TestHandler):
-        SimpleXMLRPCServer.__init__(self, ('localhost', port), handler)
+        SimpleXMLRPCServer.__init__(self, ('localhost', port), handler,
+                                    logRequests=False)
 
         def quit():
             self.shutdown()
@@ -27,9 +31,9 @@ class TestServer(SocketServer.ThreadingMixIn, SimpleXMLRPCServer):
         self.server.serve_forever()
 
 
-class TestWorker(Thread):
+class TestWorker(Process):
     def __init__(self, port, handler=TestHandler):
-        Thread.__init__(self)
+        Process.__init__(self)
         self.server = TestServer(port, handler)
         self.daemon = True
 
@@ -37,19 +41,39 @@ class TestWorker(Thread):
         self.server.serve_forever()
 
 
-def doit():
-    p = ParallelServerProxy([
-        'http://localhost:9990/',
-        'http://localhost:9991/'])
+class DummyServer:
+    def pow(s, a, b):
+        return pow(a, b)
 
-    print '%s' % p.pow(2, 2)
+    def quit(s):
+        pass
+
+
+def doit():
 
     TestWorker(9990).start()
     TestWorker(9991).start()
+    TestWorker(9992).start()
 
-    print '%s' % p.pow(2, 2)
-    print '%s' % p.quit()
+    for proxyclass in (
+            PretendParallelServerProxy,
+            HybridParallelServerProxy,
+            ThreadedParallelServerProxy,
+            TwoStageParallelServerProxy):
 
+        p = proxyclass([
+#           DummyServer(),
+            'http://localhost:9990/',
+            'http://localhost:9991/',
+            'http://localhost:9992/'])
+
+        print '***** %s *****' % p
+        t0 = time.time()
+        print ' Last result: %s' % [p.pow(i, 3) for i in range(0, 1000)][-1]
+        t1 = time.time()
+        print ' Time: %.5fs (%.5fs/remote)' % (t1 - t0, (t1-t0)/2000)
+
+    print 'Shutting down: %s' % p.quit()
 
 if __name__ == '__main__':
     doit()
