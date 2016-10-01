@@ -68,11 +68,11 @@ def doit():
 
         print '***** %s *****' % p
         t0 = time.time()
-        print ' Last result: %s' % [p.pow(i, 3) for i in range(0, 1000)][-1]
+        print ' Last result: %s' % [list(p.pow(i, 3)) for i in range(0, 1000)][-1]
         t1 = time.time()
         print ' Time: %.5fs (%.5fs/remote)' % (t1 - t0, (t1-t0)/3000)
 
-    print 'Shutting down: %s' % p.quit()
+    print 'Shutting down: %s' % list(p.quit())
 
 if __name__ == '__main__':
     doit()

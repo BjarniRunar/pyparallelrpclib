@@ -1,6 +1,7 @@
 import copy
-import xmlrpclib
+import select
 import threading
+import xmlrpclib
 
 from xmlrpclib import Fault
 
@@ -38,6 +39,20 @@ class TwoStageTransport(xmlrpclib.Transport):
             except:
                 self.close()
                 raise
+
+    def get_sockfd(self, state):
+        with self._lock:
+            h, verbose, seq = state
+            assert(seq == self._seq)
+            return h.sock
+
+    def is_ready(self, state):
+        try:
+            sock = self.get_sockfd(state)
+            r, w, e = select.select([sock], [], [sock], 0)
+            return (len(r) + len(e) > 0)
+        except (OSError, IOError):
+            return True
 
     def finish_request(self, state):
         with self._lock:
@@ -100,6 +115,16 @@ class TwoStageServerProxy(object):
                 self.host, self.handler, request, verbose=self.verbose)
         except Exception as exc:
             return exc
+
+    def get_sockfd(self, state):
+        if isinstance(state, Exception):
+            return None
+        return self.transport.get_sockfd(state)
+
+    def is_ready(self, state):
+        if isinstance(state, Exception):
+            return True
+        return self.transport.is_ready(state)
 
     def finish_request(self, state):
         if isinstance(state, Exception):
@@ -180,7 +205,7 @@ def RunSequentialJobs(jobs):
     """
     Run a list of (object, methodname, arg_list) jobs in order.
     """
-    return [_sequential_request(p, m, a) for p, m, a in jobs]
+    return (_sequential_request(p, m, a) for p, m, a in jobs)
 
 
 def _sequential_requests(proxies, methodname, args):
@@ -203,8 +228,8 @@ def RunThreadedJobs(jobs):
         threads[-1].start()
     for t in threads:
         t.join()
-
-    return results
+        while results:
+            yield results.pop(0)
 
 
 def _threaded_requests(proxies, methodname, args):
@@ -236,12 +261,25 @@ def RunTwoStageJobs(jobs, fallback=RunSequentialJobs):
         others = proxies
 
     if others:
-        results = fallback(others)
-    else:
-        results = []
+        for result in fallback(others):
+            yield result
 
-    results.extend(p.finish_request(r) for (p, r) in started)
-    return results
+    socklist = {}
+    for pr in started:
+        sockfd = pr[0].get_sockfd(pr[1])
+        if sockfd is not None:
+            socklist[sockfd] = pr
+
+    while socklist:
+        r, w, e = select.select(socklist.keys(), [], socklist.keys())
+        for k in set(r + e):
+            p, r = pr = socklist[k]
+            started.remove(pr)
+            del socklist[k]
+            yield p.finish_request(r)
+
+    for (p, r) in started:
+        yield p.finish_request(r)
 
 
 def _two_stage_requests(proxies, methodname, params):

@@ -50,11 +50,11 @@ will accept any method name and attempt to pass it on to the servers.
 #### Return Codes and Error Handling
 
 Error handling mostly inherited from `xmlrpclib`, except any raised
-execeptions are caught and returned to the caller in the list of return
-codes.
+execeptions are caught and returned to the caller.
 
-The return value of any method called is therefore a list of `(response,
-exception)` tuples, where the response or exception is always None.
+The return value of any method called is therefore a generator which
+yields `(response, exception)` tuples, where the response or exception
+is always None.
 
 
 ### Using RunThreadedJobs or RunTwoStageJobs
@@ -63,8 +63,8 @@ If you want to invoke different methods on the servers, you can access
 the parallelism algorithms using `RunThreadedJobs` or `RunTwoStageJobs`.
 
 Each of these methods takes a list of (object, methodname, arg_list)
-tuples and will run them all in parallel, gather the results (or errors)
-and return on completion.
+tuples and will run them all in parallel, returning a generator which
+yields results (or errors).
 
 `RunTwoStageJobs` takes an optional argument, `fallback` to specify
 which strategy to use for objects that don't know how to split their
