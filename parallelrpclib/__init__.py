@@ -1,3 +1,15 @@
+"""
+Tools for efficiently parallizing XML-RPC requests (or other things).
+
+This module is a replacement for `xmlrpclib` which allows the client to
+efficiently make multiple RPC requests in parallel.
+
+There are two styles of use in this library; if you are invoking the
+same method with the same arguments on all servers, one of the
+ParallelServerProxy objects will be most convenient. If making a variety
+of different requests, the lower-level RunThreadedJobs and
+RunTwoStageJobs will be more appropriate.
+"""
 import copy
 import select
 import threading
@@ -147,7 +159,11 @@ class TwoStageServerProxy(object):
 def _make_psp(kind, handle_request, tssp_localhost_only=False, doc=''):
 
     class _ParallelServerProxy(object):
-        __doc__ = doc
+        __doc__ = doc + """
+Any invoked methods on instances of this class will be proxied
+and run in parallel on all configured servers. The results are
+returned as generator which yields (result, exception) pairs.
+"""
         __KIND = kind
 
         def __init__(self, servers, **kwargs):
@@ -204,6 +220,8 @@ def _sequential_request(proxy, methodname, args):
 def RunSequentialJobs(jobs):
     """
     Run a list of (object, methodname, arg_list) jobs in order.
+
+    Returns a generator which yields (result, exception) pairs.
     """
     return (_sequential_request(p, m, a) for p, m, a in jobs)
 
@@ -216,6 +234,8 @@ def RunThreadedJobs(jobs):
     """
     Run a list of (object, methodname, arg_list) jobs in parallel,
     each in a thread of its own.
+
+    Returns a generator which yields (result, exception) pairs.
     """
     results = []
     threads = []
@@ -240,6 +260,11 @@ def RunTwoStageJobs(jobs, fallback=RunSequentialJobs):
     """
     Run a list of (object, methodname, arg_list) jobs in parallel,
     using the network for parallelization whenever possible.
+
+    For jobs which cannot be run in two stages, the fallback method
+    will be used. Setting fallback=RunThreadedJobs is often useful.
+
+    Returns a generator which yields (result, exception) pairs.
     """
     started = []
     tsjs = [j for j in jobs if isinstance(j[0], TwoStageServerProxy)]
@@ -330,4 +355,5 @@ on localhost, unless tssp_localhost_only=False is given on init.
 """)
 
 
+RunParallelJobs = RunTwoStageJobs
 ParallelServerProxy = HybridParallelServerProxy
