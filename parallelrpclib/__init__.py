@@ -119,10 +119,10 @@ class TwoStageServerProxy(object):
                     self.make_request(methodname, params))))
 
 
-def _make_psp(kind, handle_request, tssp_localhost_only=False):
+def _make_psp(kind, handle_request, tssp_localhost_only=False, doc=''):
 
-    class NewParallelServerProxy(object):
-
+    class _ParallelServerProxy(object):
+        __doc__ = doc
         __KIND = kind
 
         def __init__(self, servers, **kwargs):
@@ -231,10 +231,40 @@ def _hybrid_requests(proxies, methodname, params):
                                fallback=_threaded_requests)
 
 
-PretendParallelServerProxy = _make_psp("Pretend", _sequential_requests)
-ThreadedParallelServerProxy = _make_psp("Threaded", _threaded_requests)
-TwoStageParallelServerProxy = _make_psp("TwoStage", _two_stage_requests)
-HybridParallelServerProxy = _make_psp("Hybrid", _hybrid_requests,
-                                      tssp_localhost_only=True)
+PretendParallelServerProxy = _make_psp(
+    "Pretend",
+    _sequential_requests,
+    doc="""\
+This is a trivial sequential (not actually parallel) implementation
+of the ParallelServerProxy API, as a reference or for testing.
+""")
+
+
+ThreadedParallelServerProxy = _make_psp(
+    "Threaded",
+    _threaded_requests,
+    doc="""\
+A ParallelServerProxy that uses threads to run requests in parallel.
+""")
+
+
+TwoStageParallelServerProxy = _make_psp(
+    "TwoStage",
+    _two_stage_requests,
+    doc="""\
+A ParallelServerProxy that uses the network for parallelization,
+by sending all requests before reading any responses.
+""")
+
+
+HybridParallelServerProxy = _make_psp(
+    "Hybrid",
+    _hybrid_requests,
+    tssp_localhost_only=True,
+    doc="""\
+A ParallelServerProxy that uses the network for parallelization
+when possible, falling back to threads otherwise.
+""")
+
 
 ParallelServerProxy = HybridParallelServerProxy
