@@ -163,32 +163,42 @@ def _make_psp(kind, handle_request, tssp_localhost_only=False, doc=''):
         def __getattr__(self, name):
             return xmlrpclib._Method(self.__request, name)
 
-    return NewParallelServerProxy
+    return _ParallelServerProxy
 
 
-def _sequential_request(proxy, methodname, params, retry_list):
+def _sequential_request(proxy, methodname, args):
     try:
         if isinstance(proxy, TwoStageServerProxy):
-            return (proxy.request(methodname, params), None)
+            return proxy.request(methodname, args)
         else:
-            return (getattr(proxy, methodname)(*params), None)
+            return (getattr(proxy, methodname)(*args), None)
     except Exception as exc:
         return (None, exc)
 
 
-def _sequential_requests(proxies, methodname, params):
-    return [_sequential_request(p, methodname, params, None) for p in proxies]
+def RunSequentialJobs(jobs):
+    """
+    Run a list of (object, methodname, args) jobs in sequence.
+    """
+    return [_sequential_request(p, m, a) for p, m, a in jobs]
 
 
-def _threaded_requests(proxies, methodname, params):
+def _sequential_requests(proxies, methodname, args):
+    return RunSequentialJobs((p, methodname, args) for p in proxies)
+
+
+def RunThreadedJobs(jobs):
+    """
+    Run a list of (object, methodname, args) jobs in parallel, using threads.
+    """
     results = []
     threads = []
 
-    def runit(p):
-        results.append(_sequential_request(p, methodname, params, None))
+    def runit(p, m, a):
+        results.append(_sequential_request(p, m, a))
 
-    for p in proxies:
-        threads.append(threading.Thread(target=runit, args=(p,)))
+    for p, m, a in jobs:
+        threads.append(threading.Thread(target=runit, args=(p, m, a)))
         threads[-1].start()
     for t in threads:
         t.join()
@@ -196,29 +206,36 @@ def _threaded_requests(proxies, methodname, params):
     return results
 
 
-def _two_stage_requests(proxies, methodname, params,
-                        fallback=_sequential_requests):
+def _threaded_requests(proxies, methodname, args):
+    return RunThreadedJobs((p, methodname, args) for p in proxies)
+
+
+def RunTwoStageJobs(jobs, fallback=RunSequentialJobs):
+    """
+    Run a list of (object, methodname, args) jobs in parallel, using
+    the network for parallelization whenever possible.
+    """
     started = []
-    tssps = [p for p in proxies if isinstance(p, TwoStageServerProxy)]
-    if tssps:
-        others = [p for p in proxies if not isinstance(p, TwoStageServerProxy)]
+    tsjs = [j for j in jobs if isinstance(j[0], TwoStageServerProxy)]
+    if tsjs:
+        others = [j for j in jobs if not isinstance(j[0], TwoStageServerProxy)]
         formats = {}
-        for p in tssps:
-            fmt = p.request_format()
+        for p, m, a in tsjs:
+            fmt = (m, a, p.request_format())
             if fmt not in formats:
                 formats[fmt] = p
 
         for fmt, p in list(formats.iteritems()):
-            formats[fmt] = p.make_request(methodname, params)
+            formats[fmt] = p.make_request(fmt[0], fmt[1])
 
-        for p in tssps:
-            r = p.start_request(formats[p.request_format()])
+        for p, m, a in tsjs:
+            r = p.start_request(formats[(m, a, p.request_format())])
             started.append((p, r))
     else:
         others = proxies
 
     if others:
-        results = fallback(others, methodname, params)
+        results = fallback(others)
     else:
         results = []
 
@@ -226,9 +243,13 @@ def _two_stage_requests(proxies, methodname, params,
     return results
 
 
+def _two_stage_requests(proxies, methodname, params):
+    return RunTwoStageJobs([(p, methodname, params) for p in proxies])
+
+
 def _hybrid_requests(proxies, methodname, params):
-    return _two_stage_requests(proxies, methodname, params,
-                               fallback=_threaded_requests)
+    return RunTwoStageJobs([(p, methodname, params) for p in proxies],
+                           fallback=_threaded_requests)
 
 
 PretendParallelServerProxy = _make_psp(
@@ -262,8 +283,11 @@ HybridParallelServerProxy = _make_psp(
     _hybrid_requests,
     tssp_localhost_only=True,
     doc="""\
-A ParallelServerProxy that uses the network for parallelization
-when possible, falling back to threads otherwise.
+A ParallelServerProxy that uses either the network or threads to
+run jobs in parallel.
+
+The network is only used for parallelization for servers running
+on localhost, unless tssp_localhost_only=False is given on init.
 """)
 
 
