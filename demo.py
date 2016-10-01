@@ -61,8 +61,7 @@ def doit():
             ThreadedParallelServerProxy,
             TwoStageParallelServerProxy):
 
-        p = proxyclass([
-#           DummyServer(),
+        p = proxyclass([  # DummyServer(),
             'http://localhost:9990/',
             'http://localhost:9991/',
             'http://localhost:9992/'])
@@ -71,7 +70,7 @@ def doit():
         t0 = time.time()
         print ' Last result: %s' % [p.pow(i, 3) for i in range(0, 1000)][-1]
         t1 = time.time()
-        print ' Time: %.5fs (%.5fs/remote)' % (t1 - t0, (t1-t0)/2000)
+        print ' Time: %.5fs (%.5fs/remote)' % (t1 - t0, (t1-t0)/3000)
 
     print 'Shutting down: %s' % p.quit()
 
