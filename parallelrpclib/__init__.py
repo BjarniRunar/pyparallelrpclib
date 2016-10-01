@@ -178,7 +178,7 @@ def _sequential_request(proxy, methodname, args):
 
 def RunSequentialJobs(jobs):
     """
-    Run a list of (object, methodname, args) jobs in sequence.
+    Run a list of (object, methodname, arg_list) jobs in order.
     """
     return [_sequential_request(p, m, a) for p, m, a in jobs]
 
@@ -189,7 +189,8 @@ def _sequential_requests(proxies, methodname, args):
 
 def RunThreadedJobs(jobs):
     """
-    Run a list of (object, methodname, args) jobs in parallel, using threads.
+    Run a list of (object, methodname, arg_list) jobs in parallel,
+    each in a thread of its own.
     """
     results = []
     threads = []
@@ -212,8 +213,8 @@ def _threaded_requests(proxies, methodname, args):
 
 def RunTwoStageJobs(jobs, fallback=RunSequentialJobs):
     """
-    Run a list of (object, methodname, args) jobs in parallel, using
-    the network for parallelization whenever possible.
+    Run a list of (object, methodname, arg_list) jobs in parallel,
+    using the network for parallelization whenever possible.
     """
     started = []
     tsjs = [j for j in jobs if isinstance(j[0], TwoStageServerProxy)]
