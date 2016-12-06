@@ -4,6 +4,9 @@ Tools for efficiently parallizing XML-RPC requests (or other things).
 This module is a replacement for `xmlrpclib` which allows the client to
 efficiently make multiple RPC requests in parallel.
 
+Note: It is currently incompatible with Python 3's `xmlrpc.client`, due
+to internal changes in the implementation.
+
 There are two styles of use in this library; if you are invoking the
 same method with the same arguments on all servers, one of the
 ParallelServerProxy objects will be most convenient. If making a variety
@@ -13,9 +16,22 @@ RunTwoStageJobs will be more appropriate.
 import copy
 import select
 import threading
-import xmlrpclib
 
-from xmlrpclib import Fault
+try:
+    # Python 2.x
+
+    import xmlrpclib
+    from xmlrpclib import Fault
+    from urllib import splittype, splithost
+
+except ImportError:
+    # Python 3.x
+
+    from xmlrpc import client as xmlrpclib
+    from xmlrpc.client import Fault
+    from urllib.parse import splittype, splithost
+
+    raise ImportError('FIXME: we are incompatible with xmlrpc.client')
 
 
 class UnknownProtocolError(IOError):
@@ -89,15 +105,17 @@ class TwoStageServerProxy(object):
     """
     def __init__(self, uri, transport=None, encoding=None, verbose=0,
                  allow_none=0, use_datetime=0, context=None):
-        if isinstance(uri, unicode):
-            uri = uri.encode('utf-8')
+        try:
+            if isinstance(uri, unicode):
+                uri = uri.encode('utf-8')
+        except NameError:
+            pass  # Python 3
 
-        import urllib
-        type, uri = urllib.splittype(uri)
+        type, uri = splittype(uri)
         if type not in ('http', ):
             raise UnknownProtocolError("unsupported XML-RPC protocol")
 
-        self.host, self.handler = urllib.splithost(uri)
+        self.host, self.handler = splithost(uri)
         if not self.handler:
             self.handler = '/RPC2'
 
@@ -276,7 +294,7 @@ def RunTwoStageJobs(jobs, fallback=RunSequentialJobs):
             if fmt not in formats:
                 formats[fmt] = p
 
-        for fmt, p in list(formats.iteritems()):
+        for fmt, p in list(formats.items()):
             formats[fmt] = p.make_request(fmt[0], fmt[1])
 
         for p, m, a in tsjs:

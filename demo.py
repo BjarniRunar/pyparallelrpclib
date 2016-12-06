@@ -3,9 +3,17 @@ import time
 from parallelrpclib import *
 from multiprocessing import Process
 
-import SocketServer
-from SimpleXMLRPCServer import SimpleXMLRPCServer
-from SimpleXMLRPCServer import SimpleXMLRPCRequestHandler
+try:
+    # Python 2.x
+    import SocketServer
+    from SimpleXMLRPCServer import SimpleXMLRPCServer
+    from SimpleXMLRPCServer import SimpleXMLRPCRequestHandler
+
+except ImportError:
+    # Python 3.x
+    import socketserver as SocketServer
+    from xmlrpc.server import SimpleXMLRPCServer
+    from xmlrpc.server import SimpleXMLRPCRequestHandler
 
 
 class TestHandler(SimpleXMLRPCRequestHandler):
@@ -66,13 +74,14 @@ def doit():
             'http://localhost:9991/',
             'http://localhost:9992/'])
 
-        print '***** %s *****' % p
+        print('***** %s *****' % p)
         t0 = time.time()
-        print ' Last result: %s' % [list(p.pow(i, 3)) for i in range(0, 1000)][-1]
+        print(' Last result: %s'
+              % [list(p.pow(i, 3)) for i in range(0, 1000)][-1])
         t1 = time.time()
-        print ' Time: %.5fs (%.5fs/remote)' % (t1 - t0, (t1-t0)/3000)
+        print(' Time: %.5fs (%.5fs/remote)' % (t1 - t0, (t1-t0)/3000))
 
-    print 'Shutting down: %s' % list(p.quit())
+    print('Shutting down: %s' % list(p.quit()))
 
 if __name__ == '__main__':
     doit()
