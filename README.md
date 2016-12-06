@@ -1,7 +1,7 @@
-## An efficient parallel XML-RPC client
+## An experimental parallel XML-RPC client
 
-This module is a enhancement for `xmlrpclib` which allows the client to
-efficiently make multiple RPC requests in parallel.
+This module is a experimental enhancement for `xmlrpclib` which allows the
+client to efficiently make multiple RPC requests in parallel.
 
 There are currently three strategies implemented for parallel requests,
 perhaps we'll have more in the future. In particular, it would be nice
