@@ -7,6 +7,10 @@ There are currently three strategies implemented for parallel requests,
 perhaps we'll have more in the future. In particular, it would be nice
 to have a proper event-loop based implementation.
 
+### Requirements
+
+A recent Python 2.x.  Sadly Python 3 doesn't work yet, someday!
+
 
 ### Basic Usage Example
 
@@ -78,8 +82,8 @@ setting `fallback=RunThreadedJobs` may often make sense.
 
 Example:
 
-    from parallellrpc import ThreadedParallelServerProxy
-    from parallellrpc import RunThreadedJobs
+    from parallelrpclib import ThreadedParallelServerProxy
+    from parallelrpclib import RunThreadedJobs
 
     psp = ThreadedParallelServerProxy(['http://server/rpc/', ...])
     results = psp.do_stuff()
@@ -99,8 +103,8 @@ the remote servers.
 
 Example:
 
-    from parallellrpc import TwoStageParallelServerProxy
-    from parallellrpc import RunTwoStageJobs, RunThreadedJobs
+    from parallelrpclib import TwoStageParallelServerProxy
+    from parallelrpclib import RunTwoStageJobs, RunThreadedJobs
 
     psp = TwoStageParallelServerProxy(['http://server/rpc/', ...])
     results = psp.do_stuff()
@@ -128,7 +132,7 @@ order (or in threads if using the Hybrid method discussed below).
 
 Example:
 
-    from parallellrpc import HybridParallelServerProxy
+    from parallelrpclib import HybridParallelServerProxy
 
     psp = HybridParallelServerProxy(['http://server/rpc/', ...])
     results = psp.do_stuff()
@@ -141,8 +145,8 @@ To manually enable two-stage parallelism for a non-localhost server,
 by instanciating your own `TwoStageServerProxy` and passing in as server
 instead of an URL:
 
-    from parallellrpc import HybridParallelServerProxy
-    from parallellrpc import TwoStageServerProxy
+    from parallelrpclib import HybridParallelServerProxy
+    from parallelrpclib import TwoStageServerProxy
 
     psp = HybridParallelServerProxy([
         'http://server/rpc/',
@@ -154,6 +158,7 @@ instead of an URL:
 
 ### TODO
 
+   * Support Python 3.x
    * Add support for HTTPS to `TwoStageServerProxy`.
    * Add support for a proper eventloop-based implementation
 
